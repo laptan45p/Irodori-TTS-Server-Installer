@@ -1,4 +1,4 @@
-﻿param([ValidateSet('Install','Start','Diagnose','Login','Test')][string]$Mode='Start')
+﻿param([ValidateSet('Install','Start','Diagnose','Login','Test','SelectModel')][string]$Mode='Start')
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
@@ -18,6 +18,7 @@ $env:PATH="$(Join-Path $Tools 'git\cmd');$env:PATH"
 $env:GIT_TERMINAL_PROMPT='0'
 New-Item -ItemType Directory -Force -Path (Join-Path $Root 'logs') | Out-Null
 $Logging=$false
+. (Join-Path $Root 'model-settings.ps1')
 function Run([string]$Exe,[string[]]$Arguments) {
     & $Exe @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Exe failed (exit $LASTEXITCODE)." }
@@ -40,7 +41,15 @@ try {
         Start-Transcript -Path (Join-Path $Root ("logs\{0}-{1}.log" -f $Mode,(Get-Date -Format 'yyyyMMdd-HHmmss'))) | Out-Null
         $Logging=$true
     }
-    if ($Mode -eq 'Install') {
+    if ($Mode -eq 'SelectModel') {
+        $envPath = Join-Path $App '.env'
+        if (-not (Test-Path -LiteralPath $envPath -PathType Leaf)) { throw '先に 01_Install.bat を実行してください。' }
+        Write-Host '先にサーバーをCtrl+Cで停止してください。切り替え後は02_Start.batで再起動します。'
+        Write-Host 'LargeとSmallでは対応するSpeaker Embeddingが異なります。選んだ基盤モデルに合う声を使ってください。'
+        $model = Read-InstallerModel
+        Save-InstallerModel $envPath $model
+        Write-Host '保存しました。02_Start.batで起動してください。' -ForegroundColor Green
+    } elseif ($Mode -eq 'Install') {
         Write-Host 'Irodori-TTS-Server 簡易インストーラー' -ForegroundColor Cyan
         Write-Host 'このフォルダへ専用Python/Git/uvを導入します。インターネットと十分な空き容量が必要です。'
         $backend=Read-Host '実行環境: 1=NVIDIA GPU / 2=CPU（低速） [1]'
@@ -52,17 +61,10 @@ try {
         $model='Aratako/Irodori-TTS-v4-Large-Quantized/int8-weight-only'
         $bind='0.0.0.0'
         if (-not (Test-Path -LiteralPath (Join-Path $App '.env'))) {
-            Write-Host '1=v4 Large int8 / 2=v4 Small（公式既定） / 3=モデルIDを入力'
-            $choice=Read-Host 'モデル [1]'
-            switch ($choice) {
-                '' {} '1' {} '2' { $model='Aratako/Irodori-TTS-v4-Small' }
-                '3' { $model=Read-Host 'Hugging Face ID (owner/repository[/subfolder])' }
-                default { throw 'モデル選択は1～3です。' }
-            }
-            if ($model -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(/[A-Za-z0-9_./-]+)?$') { throw 'モデルIDの形式を確認してください。' }
+            $model=Read-InstallerModel
             $network=Read-Host '接続: 1=同じLANの別PCから利用 / 2=このPCだけ [1]'
             if ($network -eq '2') { $bind='127.0.0.1' } elseif ($network -notin @('','1')) { throw '1 または 2 を指定してください。' }
-        } else { Write-Host '既存の .env と音声データを保持します。モデル変更は server\.env で行えます。' }
+        } else { Write-Host '既存の .env と音声データを保持します。モデル変更は 06_Select_Model.bat で行えます。' }
         New-Item -ItemType Directory -Force -Path $Tools | Out-Null
         if (-not (Test-Path -LiteralPath $Uv)) {
             Write-Host 'uv をダウンロードしています...'
@@ -116,6 +118,7 @@ try {
         Set-Location -LiteralPath $App
         if ($Mode -eq 'Start') {
             if (-not (Test-Path -LiteralPath (Join-Path $Root 'installed-backend.txt'))) { throw 'インストールが未完了です。01_Install.bat を再実行してください。' }
+            Use-InstallerModelSettings (Join-Path $App '.env')
             $port=Get-Setting 'IRODORI_PORT' '8088'
             Write-Host "接続確認: http://127.0.0.1:$port/health"
             Write-Host "別PCの接続先: http://<このPCのIPv4アドレス>:$port/v1"
