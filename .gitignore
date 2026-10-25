@@ -1,0 +1,9 @@
+/server/
+/tools/
+/cache/
+/logs/
+/installed-backend.txt
+/test-output.wav
+*.bak
+*.tmp
+__pycache__/
