@@ -1,4 +1,4 @@
-﻿Irodori-TTS-Server 簡易インストーラー v1.0.1
+﻿Irodori-TTS-Server 簡易インストーラー v1.1.0
 
 Windows 10/11 x64用。NVIDIA GPU（CUDA 12.8）またはCPU。
 これは非公式の導入補助ツールです。サーバー本体は公式からダウンロードします。
@@ -8,7 +8,7 @@ Windows 10/11 x64用。NVIDIA GPU（CUDA 12.8）またはCPU。
 1. ZIPを全て展開。例: D:\Irodori-Server
    書き込み可能な短いパスを推奨。Program Files/OneDrive配下は避けてください。
 2. 01_Install.bat をダブルクリック。
-   NVIDIA / CPU、モデル、LAN利用 / このPCのみ を選びます。
+   NVIDIA / CPU、3種類のモデル、LAN利用 / このPCのみ を選びます。
    初期選択: NVIDIA、v4 Large int8、LAN利用。
 3. 02_Start.bat をダブルクリック。ウィンドウを開いたまま使います。
 4. 同じPCで http://127.0.0.1:8088/health を開いて接続を確認。
@@ -47,7 +47,11 @@ Smallなど別のモデルへ変更すると、Largeで学習した話者が使�
 元PCの声・設定・モデルは自動転送しません。必要な音声ファイルをコピーしてください。
 
 ■ 設定変更
-server\.env をメモ帳で編集し、02_Start.bat を起動し直します。
+モデルの変更は、サーバーをCtrl+Cで停止してから 06_Select_Model.bat を実行します。
+1 / 2 / 3 を入力して保存し、02_Start.bat で再起動してください。
+.envは変更前に自動バックアップします。接続・精度・音声データは保持します。
+古いローカルモデル指定 IRODORI_CHECKPOINT は解除し、選択したHFモデルを使います。
+その他の設定は server\.env をメモ帳で編集し、サーバーを再起動します。
 IRODORI_HF_CHECKPOINT : モデルID（owner/repository[/subfolder]）
 IRODORI_HOST : LAN=0.0.0.0 / このPCだけ=127.0.0.1
 IRODORI_PORT : ポート（既定8088）
@@ -59,7 +63,8 @@ IRODORI_PRELOAD : trueにすると起動時にモデルを読み込みます。
 tokenizerフォルダ等の必要な付属ファイルも公式の案内に従って配置してください。
 01_Install.bat再実行では既存.env/voicesを保持します。
 GPUとCPUを切り替える際は.envのdevice/precision設定も手動で見直してください。
-環境変数にIRODORI_*を別途設定している場合は.envより優先されます。
+02_Start.batでは、モデルに関するIRODORI_HF_CHECKPOINTとIRODORI_CHECKPOINTは
+この環境のserver\.envの指定を使います。その他の環境変数は従来どおり.envより優先されます。
 
 ■ エラー時
 logsにインストール/起動/診断ログを保存します。
@@ -84,6 +89,30 @@ logs: ログ
 導入後のフォルダ移動/コピーは仮想環境の絶対パスを壊す可能性があります。
 別PCではこのZIPから新規インストールしてください。
 アンインストールはサーバーを停止し、必要なvoices/.envを退避してフォルダ全体を削除。
+
+■ 選べるモデル（v1.1.0）
+1. v4 Large INT8（既定）
+   Aratako/Irodori-TTS-v4-Large-Quantized/int8-weight-only
+2. v4.1-Small オリジナル
+   Aratako/Irodori-TTS-v4.1-Small
+3. v4.1-Small INT8
+   Aratako/Irodori-TTS-v4.1-Small-Quantized/int8-weight-only
+
+新規導入は01_Install.bat、導入後の変更は06_Select_Model.batで選択します。
+01_Install.batの再実行だけでは既存モデルを変更しません。
+INT8はどちらもweight-only版です。オリジナルは非量子化チェックポイントです。
+計算精度（NVIDIA: bf16 / CPU: fp32）は従来どおりです。
+モデルは初回生成時に自動取得します。ダウンロードとGPU推論の実機確認は未実施です。
+Large用のSpeaker EmbeddingをSmallへそのまま流用せず、基盤モデルに合う声を選んでください。
+Companionの接続先URLは同じです。変更した基盤モデルに合うEmbeddingを選び直してください。
+
+■ v1.0.1からの更新
+サーバーを停止し、ZIP内のファイルを既存Installerフォルダーへ上書きしてください。
+model-settings.ps1と06_Select_Model.batも必ずコピーします。
+server・tools・cacheは残したまま、06_Select_Model.batでモデルを選択できます。
+Pythonやモデルの再インストールは不要です。02_Start.batで起動し直します。
+.env.before-model-日時-ID.bakがserver内に残るため、設定を戻す場合はサーバー停止後に
+必要なバックアップをserver\.envへコピーしてください。
 
 ■ v1.0.1 修正内容と再実行方法
 MinGitの通常版とbusybox版が両方一致して停止する不具合を修正。
